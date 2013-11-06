@@ -20,15 +20,30 @@ class MassObject
   end
 
   def self.parse_all(args)
-    [].tap do |arr|
-      args.each do |hash|
-        arr << self.new(hash)
-      end
-    end
+    args.map { |hash| self.new(hash) }
   end
 end
 
+module Searchable
+  def where(fields)
+    results = DBConnection.execute(<<-SQL, *fields.values)
+    SELECT * FROM
+      #{self.table_name}
+    WHERE
+      #{fields.keys.map { |k| "`#{k}`" }.join(" = ? AND ")} = ?
+    SQL
+    self.parse_all(results)
+  end
+end
+
+module Associatable
+
+end
+
 class SQLObject < MassObject
+  extend Searchable
+  extend Associatable
+
   def self.set_table_name(name)
     @table_name = name
   end
@@ -39,7 +54,7 @@ class SQLObject < MassObject
 
   def self.all
     results = DBConnection.execute("SELECT * FROM #{table_name}")
-    results.map { |result| self.new(result) }
+    self.parse_all(results)
   end
 
   def self.find(primary_key)
