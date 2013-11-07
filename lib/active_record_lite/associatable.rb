@@ -11,13 +11,16 @@ module Associatable
       WHERE
         #{settings.other_table}.#{settings.primary_key} = ?
       SQL
+      return nil if results.empty?
 
-      results.empty? ? nil : settings.other_class.new(results.first)
+      settings.other_class.new(results.first)
     end
   end
 
-  def has_one_through(*args)
-
+  def has_one_through(association_name, source, target)
+    define_method(association_name) do
+      self.send(source).send(target)
+    end
   end
 
   def has_many(association_name, settings={})
@@ -62,6 +65,7 @@ class BelongsToAssocParams < AssocParams
       :primary_key => "id"
     }
     @settings = defaults.merge(settings)
+    @settings[:association_name] = association_name
   end
 end
 
