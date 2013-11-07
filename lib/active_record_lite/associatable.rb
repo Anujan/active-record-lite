@@ -3,41 +3,40 @@ module Associatable
   def belongs_to(association_name, settings={})
     settings = BelongsToAssocParams.new(association_name, settings)
     define_method(association_name) do
-      results = DBConnection.execute(<<-SQL, self.id)
+      results = DBConnection.execute(<<-SQL, self.get(settings.foreign_key))
       SELECT
-        #{settings.class_obj}.*
+        *
       FROM
-        #{self.table_name}
-      JOIN
-        #{settings.other_table_name}
-      ON
-        #{self.table_name}.#{settings.foreign_key} = #{settings.other_table_name}.#{settings.primary_key}
+        #{settings.other_table}
       WHERE
-          #{self.table_name}.#{settings.foreign_key} = ?
+        #{settings.other_table}.#{settings.primary_key} = ?
       SQL
-      objs = self.parse_all(results)
 
-      objs.empty? ? nil : objs.first
+      results.empty? ? nil : settings.other_class.new(results.first)
     end
   end
 
   def has_one_through(*args)
+
   end
 
   def has_many(association_name, settings={})
+    settings = HasManyAssocParams.new(association_name, self.class, settings)
+    define_method(association_name) do
+      results = DBConnection.execute(<<-SQL, self.get(settings.primary_key))
+      SELECT
+        *
+      FROM
+        #{settings.other_table}
+      WHERE
+        #{settings.foreign_key} = ?
+      SQL
+      settings.other_class.parse_all(results)
+    end
   end
 end
 
-class BelongsToAssocParams
-  def initialize(association_name, settings={})
-    defaults = {
-      :class_name => association_name.to_s.camelize,
-      :foreign_key => "#{association_name}_id".to_s.underscore,
-      :primary_key => "id"
-    }
-    @settings = defaults.merge(settings)
-  end
-
+class AssocParams
   def primary_key
     @settings[:primary_key]
   end
@@ -46,11 +45,34 @@ class BelongsToAssocParams
     @settings[:foreign_key]
   end
 
-  def class_obj
+  def other_class
     @settings[:class_name].constantize
   end
 
   def other_table
-    self.class_obj.table_name
+    other_class.table_name
+  end
+end
+
+class BelongsToAssocParams < AssocParams
+  def initialize(association_name, settings={})
+    defaults = {
+      :class_name => association_name.to_s.camelize,
+      :foreign_key => "#{association_name}_id".to_s.underscore,
+      :primary_key => "id"
+    }
+    @settings = defaults.merge(settings)
+  end
+end
+
+class HasManyAssocParams < AssocParams
+  def initialize(association_name, current_class, settings={})
+    singular = association_name.to_s.singularize
+    defaults = {
+      :class_name => singular.camelize,
+      :foreign_key => "#{current_class}_id".underscore,
+      :primary_key => "id"
+    }
+    @settings = defaults.merge(settings)
   end
 end

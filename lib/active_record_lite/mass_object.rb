@@ -17,6 +17,10 @@ class MassObject
     end
   end
 
+  def get(atr)
+    instance_variable_get("@#{atr}")
+  end
+
   def self.parse_all(args)
     args.map { |hash| self.new(hash) }
   end
