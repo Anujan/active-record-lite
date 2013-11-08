@@ -47,6 +47,8 @@ class SQLObject < MassObject
       #{self.class.table_name}
     SET
       #{attrs.keys.join(" = ?,")} = ?
+    WHERE
+      id = #{self.id}
     SQL
   end
 
