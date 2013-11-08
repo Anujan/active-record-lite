@@ -34,7 +34,35 @@ module Associatable
       WHERE
         #{settings.foreign_key} = ?
       SQL
+
       settings.other_class.parse_all(results)
+    end
+
+    define_method("#{association_name.to_s.singularize}_ids") do
+      results = DBConnection.execute(<<-SQL, self.get(settings.primary_key))
+      SELECT
+        id
+      FROM
+        #{settings.other_table}
+      WHERE
+        #{settings.foreign_key} = ?
+      SQL
+
+      results.map { |arr| arr["id"] }
+    end
+
+    define_method("#{association_name.to_s.singularize}_ids=") do |ids|
+      self.send(association_name).clear
+      results = DBConnection.execute(<<-SQL, self.id, *ids)
+      UPDATE
+        #{settings.other_table}
+      SET
+        #{settings.foreign_key} = ?
+      WHERE
+        id IN (#{ids.map {|m| "?" }.join(", ")})
+      SQL
+
+      nil
     end
   end
 end
